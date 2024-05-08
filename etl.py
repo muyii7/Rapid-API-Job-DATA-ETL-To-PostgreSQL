@@ -5,6 +5,7 @@ import ast
 import psycopg2
 from datetime import datetime
 import os
+import glob
 from util import get_api_credentials, get_database_conn
 from dotenv import dotenv_values
 dotenv_values()
@@ -18,6 +19,7 @@ config = dotenv_values('.env')
 headers = get_api_credentials()[0]
 querystring = get_api_credentials()[1]
 raw_folders = 'raw_folder/'
+transformed_data = 'transformed_data'
 
 #data is extracted from rapidapi.com and laoded to local folder called raw_folder
 def extract_raw_job_data(url, headers, querystring): 
@@ -33,7 +35,7 @@ def extract_raw_job_data(url, headers, querystring):
     except Exception as e:
         print(f"Error writting JSON data to raw_data folder: {str(e)}")
     print('raw data job is extracted from api and written to raw_folder')
-    
+
 
 #json data is read from the local raw_folder then transformed before being pushed to the postgreSQL database
 def job_data_transformation(raw_folder):
@@ -61,7 +63,25 @@ def job_data_transformation(raw_folder):
     file_name = f"transformed_data_{datetime.now().strftime('%Y%m%d%H%M')}.csv" #file name is defined per time
     job_data.to_csv(f"transformed_data/{file_name}", index=False) #csv data os written to transformed data folder
     print('transformed data is written to transformed folder')
-job_data_transformation(raw_folders)
 
+
+#Transformed data is loaded to the postgreDQL 
+def write_transformed_data_to_postgreSQL(trans_data):
+    '''
+    Create a table in PostgreSQL using the query in create_table.sql file
+    '''
+    # Get a list of all files in the folder
+    list_of_files = glob.glob(trans_data + '/*')
+
+    # Find the latest file based on creation time
+    latest_file = max(list_of_files, key=os.path.getctime)
+
+    #postgresql connection is called
+    conn = get_database_conn() 
+    transformed_data = pd.read_csv(f'{latest_file}') #file to be laoded into postgreSQL is called
+    transformed_data.to_sql('transformed_data', con= conn, if_exists='append', index= False)
+    print('transformed_data is now loaded to postgreSQL')
+    
+write_transformed_data_to_postgreSQL(transformed_data)
 
     
