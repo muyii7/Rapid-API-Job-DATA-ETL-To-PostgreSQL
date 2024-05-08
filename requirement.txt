@@ -1,0 +1,5 @@
+requests==2.31.0
+json==4.22.0
+pandas==1.5.3
+psycopg2==2.9.9
+
