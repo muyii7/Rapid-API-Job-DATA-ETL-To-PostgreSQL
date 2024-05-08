@@ -34,4 +34,34 @@ def extract_raw_job_data(url, headers, querystring):
         print(f"Error writting JSON data to raw_data folder: {str(e)}")
     print('raw data job is extracted from api and written to raw_folder')
     
-extract_raw_job_data(url, headers, querystring)
+
+#json data is read from the local raw_folder then transformed before being pushed to the postgreSQL database
+def job_data_transformation(raw_folder):
+    path_to_json = raw_folder
+    # Get a list of all JSON files in the folder
+    json_files = [pos_json for pos_json in os.listdir(path_to_json) if pos_json.endswith('.json')]
+
+    # Sort the list of files by modification time (latest first)
+    json_files.sort(key=lambda x: os.path.getmtime(os.path.join(path_to_json, x)), reverse=True)
+
+    # Read the contents of the latest JSON file into a pandas DataFrame
+    latest_json_file = json_files[0]
+    with open(f'raw_folder/{latest_json_file}', 'r') as json_file:
+        json_data = json.load(json_file)
+    #transformation of the read json file
+    try:
+        data_job = json_data.get('data')
+        columns = ['employer_website','job_id', 'job_employment_type','job_title', 'job_apply_link','job_description','job_city','job_country','job_posted_at_datetime_utc', 'employer_company_type']
+        job_data = pd.DataFrame(data_job)[columns]
+        job_data['job_posted_date'] = job_data['job_posted_at_datetime_utc'].apply(lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%S.%fZ').date())
+        job_data = job_data[['employer_website','job_id', 'job_employment_type','job_title', 'job_apply_link','job_description','job_city','job_country','job_posted_date', 'employer_company_type']]
+        
+    except Exception as e:
+        print(f"Error reading JSON file from raw_data folder: {e}")
+    file_name = f"transformed_data_{datetime.now().strftime('%Y%m%d%H%M')}.csv" #file name is defined per time
+    job_data.to_csv(f"transformed_data/{file_name}", index=False) #csv data os written to transformed data folder
+    print('transformed data is written to transformed folder')
+job_data_transformation(raw_folders)
+
+
+    
